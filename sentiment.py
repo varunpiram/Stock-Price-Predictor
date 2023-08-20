@@ -5,6 +5,7 @@ from transformers import DistilBertTokenizer, DistilBertModel
 from sklearn.metrics.pairwise import cosine_similarity
 import os
 import torch
+import yfinance as yf
 
 
 
@@ -46,6 +47,22 @@ class sentimentScorer():
         score = sim_positive - sim_negative
         return score[0][0]
     
+    def fetch_financial_data(self, ticker, start_date, end_date):
+        # Fetch data with yfinance
+        df_financial = yf.download(ticker, start=start_date, end=end_date)
+        return df_financial
+    
+    def handle_missing_data(self, df):
+        # Forward fill NaN values in the 'Volume' column
+        df['Volume'].fillna(method='ffill', inplace=True)
+
+        # For other columns, fill NaN with the last available 'Close' value
+        price_columns = ['Open', 'High', 'Low', 'Close']
+        for col in price_columns:
+            df[col].fillna(method='ffill', inplace=True)
+        return df
+
+        
     def score(self, ticker):
         df = pd.read_csv('WorldNewsData.csv')
         output_path = f"data/Data_{ticker}.csv"
@@ -53,19 +70,32 @@ class sentimentScorer():
             # Read the existing DataFrame
             existing_df = pd.read_csv(output_path)
             last_date_existing = pd.to_datetime(existing_df['Date'].iloc[-1])
-
             # Filter the main DataFrame to only process entries after the last_date_existing
             df = df[pd.to_datetime(df['Date']) > last_date_existing]
-
-
 
         # If there are new entries in df after filtering, compute sentiment scores
         if not df.empty:
             df['Sentiment_Score'] = df.apply(lambda row: self.compute_score(row, ticker), axis=1)
+            start_date = pd.to_datetime(df['Date'].iloc[0])
+
+            end_date = pd.to_datetime(df['Date'].iloc[-1]) + pd.Timedelta(days=1)
+            
+            df_financial = self.fetch_financial_data(ticker, start_date, end_date)
+            
+            # Merge sentiment data with financial data
+            df['Date'] = pd.to_datetime(df['Date'], format='%d-%b-%y')
+            df_combined = pd.merge(df, df_financial, left_on="Date", right_index=True, how="left")
+            df_combined = self.handle_missing_data(df_combined)
+            
+            # Add the 'next day high' column
+            df_combined["Next_Day_High"] = df_combined["High"].shift(-1)
+            
 
             # Prepare the new DataFrame to save
-            output_df = df[['Date', 'Sentiment_Score']]
-
+            output_df = df_combined[['Date', 'Sentiment_Score', 'Open', 'High', 'Low', 'Close', 'Volume', 'Next_Day_High']]
+            
+            output_df = output_df.drop(output_df.index[-1])
+            
             # Append to existing or save new
             if os.path.exists(output_path):
                 existing_df = pd.read_csv(output_path)
@@ -75,13 +105,12 @@ class sentimentScorer():
                 if not os.path.exists("data"):
                     os.makedirs("data")
                 output_df.to_csv(output_path, index=False)
-
-            print("Sentiment scores computed and saved successfully.")
+            
+            print("Data retrieved and saved successfully.")
         else:
             print(f"No new dates found. Data_{ticker}.csv is up-to-date.")
 
 
-
 sc = sentimentScorer()
 sc.score("AAPL")
-sc.score("TSLA")
+
