@@ -11,7 +11,8 @@ class StockPredictor:
 
     def __init__(self, ticker):
         self.ticker = ticker
-        self.scaler = MinMaxScaler(feature_range=(0, 1))
+        self.feature_scaler = MinMaxScaler(feature_range=(0, 1))
+        self.target_scaler = MinMaxScaler(feature_range=(0, 1))
         self.model_path = f"data/Model_{ticker}.h5"
         if os.path.exists(self.model_path):
             self.model = load_model(self.model_path)
@@ -27,30 +28,32 @@ class StockPredictor:
         return df.copy(deep=True)
 
     def preprocess_data(self, df):
-        dataset = df['Next_Day_High'].values
-        dataset = dataset.astype('float32')
-        dataset = np.reshape(dataset, (-1, 1))
-        dataset = self.scaler.transform(dataset)
-
+        features = df.drop(columns=['Date', 'Next Day High'])
+        targets = df['Next Day High'].values
+        
+        # Scale features and targets
+        features_scaled = self.feature_scaler.transform(features)
+        targets_scaled = self.target_scaler.transform(targets.reshape(-1, 1))
+        
         X, Y = [], []
         look_back = 20
-        for i in range(len(dataset) - look_back - 1):
-            a = dataset[i:(i + look_back), 0]
-            X.append(a)
-            Y.append(dataset[i + look_back, 0])
+        for i in range(len(features_scaled) - look_back - 1):
+            X.append(features_scaled[i:(i + look_back)])
+            Y.append(targets_scaled[i + look_back])
         return np.array(X), np.array(Y)
 
     def train(self):
         df = self.load_data()
         train_size = int(len(df) * 0.67)
         train = df.iloc[0:train_size]
-        test = df.iloc[train_size:]
 
-        # Fit scaler on training data only
-        self.scaler.fit(train[['Next_Day_High']].values)
+        # Fit scalers on training data
+        self.feature_scaler.fit(train.drop(columns=['Date', 'Next Day High']))
+        self.target_scaler.fit(train['Next Day High'].values.reshape(-1, 1))
 
         X_train, Y_train = self.preprocess_data(train)
-        X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+        X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], X_train.shape[2]))
+
 
         # Model architecture
         if self.model is None:
@@ -62,7 +65,7 @@ class StockPredictor:
             self.model.add(Dense(1))
             self.model.compile(loss='mean_squared_error', optimizer='adam')
 
-        self.model.fit(X_train, Y_train, epochs=50, batch_size=32, verbose=1)  # Using batch size of 32
+        self.model.fit(X_train, Y_train, epochs=50, batch_size=32, verbose=1)  
         self.model.save(self.model_path)
 
     def predict(self, recent_data):
@@ -74,9 +77,9 @@ class StockPredictor:
         if X.shape[0] == 0:
             raise ValueError("Not enough records in recent_data to make a prediction.")
 
-        X = np.reshape(X, (X.shape[0], X.shape[1], 1))
+        X = np.reshape(X, (X.shape[0], X.shape[1], X.shape[2]))
         predicted = self.model.predict(X)
-        return self.scaler.inverse_transform(predicted)
+        return self.target_scaler.inverse_transform(predicted)
 
     def load_recent_data(self, end_date_str):
         df = self.load_data()
@@ -87,14 +90,13 @@ class StockPredictor:
         recent_data = df[mask]
         return recent_data
 
-
 # Usage:
-ticker = 'GOOG'
+ticker = 'LMT'
 prd = StockPredictor(ticker)
 prd.train()
 
 today_str = datetime.today().strftime('%Y-%m-%d')
-recent_data = prd.load_recent_data('2018-07-13')
+recent_data = prd.load_recent_data('2018-08-31')
 predictions = prd.predict(recent_data)
 last_date = recent_data.iloc[-1]['Date'].strftime('%Y-%m-%d')  # Format date to yyyy-mm-dd before printing
 print(f"Predicted next-day-high for {ticker} on {last_date} is: {predictions[-1][0]}")
