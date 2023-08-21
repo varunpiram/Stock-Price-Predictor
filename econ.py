@@ -3,6 +3,9 @@ import yfinance as yf
 import datetime
 from fredapi import Fred
 
+
+#TODO: ADD ENVIRONMENTAL VARIABLE STUFF FOR API KEY!!!! API KEY HARDCODED RIGHT NOW!!
+
 class EconomicDataUpdater:
     def __init__(self, fred_api_key):
         self.file_path = 'WorldEconomicData.csv'
