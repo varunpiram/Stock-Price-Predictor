@@ -1,11 +1,11 @@
-
-
 import pandas as pd
 from transformers import DistilBertTokenizer, DistilBertModel
 from sklearn.metrics.pairwise import cosine_similarity
 import os
 import torch
 import yfinance as yf
+import talib
+from yfinance import Ticker
 
 
 
@@ -30,7 +30,6 @@ class sentimentScorer():
         # Get embeddings for positive prompt + headlines
         input_ids_positive = self.tokenizer(headlines + prompt_positive, return_tensors="pt", max_length=512, truncation=True)["input_ids"]
 
-
         with torch.no_grad():
             embeddings_positive = self.model(input_ids_positive).last_hidden_state.mean(dim=1)
         
@@ -48,54 +47,109 @@ class sentimentScorer():
         return score[0][0]
     
     def fetch_financial_data(self, ticker, start_date, end_date):
-        # Fetch data with yfinance
-        df_financial = yf.download(ticker, start=start_date, end=end_date)
+        buffer_days = 50  
+        adjusted_start_date = start_date - pd.Timedelta(days=buffer_days)
+        
+        # Fetch data with yfinance using the adjusted start date
+        df_financial = yf.download(ticker, start=adjusted_start_date, end=end_date)
         return df_financial
+    
+    def add_technical_indicators(self, df):
+        df['RSI'] = talib.RSI(df['Close'], timeperiod=14)
+        df['MACD'], df['MACD Signal'], _ = talib.MACD(df['Close'], fastperiod=12, slowperiod=26, signalperiod=9)
+        df['Upper Band'], df['Middle Band'], df['Lower Band'] = talib.BBANDS(df['Close'], timeperiod=20)
+        
+        return df
+    
+    def fetch_fundamental_data(self, ticker):
+        stock = Ticker(ticker)
+        fundamentals = stock.info
+        trailing_pe = fundamentals.get("trailingPE", None)
+        forward_pe = fundamentals.get("forwardPE", None)
+        dividend_yield = fundamentals.get("dividendYield", None)
+        
+        return trailing_pe, forward_pe, dividend_yield
     
     def handle_missing_data(self, df):
         # Forward fill NaN values in the 'Volume' column
         df['Volume'].fillna(method='ffill', inplace=True)
+        
+        # New Columns: Technical Indicators
+        columns_technical = ['RSI', 'MACD', 'MACD Signal', 'Upper Band', 'Middle Band', 'Lower Band']
+        
+        # New Columns: Fundamental Data
+        columns_fundamental = ['Trailing PE', 'Forward PE', 'Dividend Yield']
+        
+        # Existing Columns: Price Data
+        columns_price = ['Open', 'High', 'Low', 'Close', 'Sentiment_Score']
 
-        # For other columns, fill NaN with the last available 'Close' value
-        price_columns = ['Open', 'High', 'Low', 'Close']
-        for col in price_columns:
-            df[col].fillna(method='ffill', inplace=True)
+        # Handle Dividend Yield by setting NaN values to 0
+        df['Dividend Yield'].fillna(0, inplace=True)
+
+        # For other columns, fill NaN with the last available value
+        for col in columns_technical + columns_price + columns_fundamental:
+            if col != 'Dividend Yield':
+                df[col].fillna(method='ffill', inplace=True)
+        
         return df
+
+
 
         
     def score(self, ticker):
         df = pd.read_csv('WorldNewsData.csv')
         output_path = f"data/Data_{ticker}.csv"
+
         if os.path.exists(output_path):
             # Read the existing DataFrame
             existing_df = pd.read_csv(output_path)
             last_date_existing = pd.to_datetime(existing_df['Date'].iloc[-1])
+            
             # Filter the main DataFrame to only process entries after the last_date_existing
             df = df[pd.to_datetime(df['Date']) > last_date_existing]
 
         # If there are new entries in df after filtering, compute sentiment scores
         if not df.empty:
             df['Sentiment_Score'] = df.apply(lambda row: self.compute_score(row, ticker), axis=1)
+            
             start_date = pd.to_datetime(df['Date'].iloc[0])
-
             end_date = pd.to_datetime(df['Date'].iloc[-1]) + pd.Timedelta(days=1)
             
             df_financial = self.fetch_financial_data(ticker, start_date, end_date)
+
+            # Add technical indicators
+            df_financial = self.add_technical_indicators(df_financial)
+            
+            # Fetch fundamental data
+            trailing_pe, forward_pe, dividend_yield = self.fetch_fundamental_data(ticker)
+            df_financial['Trailing PE'] = [trailing_pe] * df_financial.shape[0]
+            df_financial['Forward PE'] = [forward_pe] * df_financial.shape[0]
+            df_financial['Dividend Yield'] = [dividend_yield] * df_financial.shape[0]
             
             # Merge sentiment data with financial data
             df['Date'] = pd.to_datetime(df['Date'], format='%d-%b-%y')
             df_combined = pd.merge(df, df_financial, left_on="Date", right_index=True, how="left")
+            
+            # Filter the combined dataframe to only include dates from the sentiment data
+            df_combined = df_combined[df_combined['Date'].between(start_date, end_date)]
+            
             df_combined = self.handle_missing_data(df_combined)
             
             # Add the 'next day high' column
             df_combined["Next_Day_High"] = df_combined["High"].shift(-1)
             
+            columns_output = ['Date', 'Sentiment_Score', 'Open', 'High', 'Low', 'Close', 'Volume', 
+                            'RSI', 'MACD', 'MACD Signal', 'Upper Band', 'Middle Band', 'Lower Band', 
+                            'Trailing PE', 'Forward PE', 'Dividend Yield', 'Next_Day_High']
 
-            # Prepare the new DataFrame to save
-            output_df = df_combined[['Date', 'Sentiment_Score', 'Open', 'High', 'Low', 'Close', 'Volume', 'Next_Day_High']]
-            
-            output_df = output_df.drop(output_df.index[-1])
-            
+            output_df = df_combined[columns_output].copy()
+                    
+            # Convert 'Date' column to 'YYYY-MM-DD' format without time details
+            output_df['Date'] = output_df['Date'].dt.strftime('%Y-%m-%d')
+                    
+            # Set the 'Next_Day_High' for the last row to NaN
+            output_df.at[output_df.index[-1], 'Next_Day_High'] = float('NaN')
+
             # Append to existing or save new
             if os.path.exists(output_path):
                 existing_df = pd.read_csv(output_path)
@@ -105,12 +159,11 @@ class sentimentScorer():
                 if not os.path.exists("data"):
                     os.makedirs("data")
                 output_df.to_csv(output_path, index=False)
-            
+                
             print("Data retrieved and saved successfully.")
         else:
-            print(f"No new dates found. Data_{ticker}.csv is up-to-date.")
-
+            print(f"Data_{ticker}.csv is up-to-date.")
 
 sc = sentimentScorer()
-sc.score("AAPL")
+sc.score("GOOG")
 
