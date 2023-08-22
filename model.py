@@ -125,41 +125,52 @@ class StockPredictor:
         print(f"Predicted next-day high for {self.ticker} on {date} is {str(predicted_high[0][0])}")
         return predicted_high[0][0]
     
+    #TODO: Does not work
     def backtest(self, start_date, end_date):
-        # Filter data for the specified date range
-        start_idx = self.data[self.data["Date"] == start_date].index[0]
-        end_idx = self.data[self.data["Date"] == end_date].index[0]
-        backtest_data = self.data[start_idx:end_idx + 1]
+        # Ensure the dates are present in the dataset
+        if start_date not in self.data["Date"].values or end_date not in self.data["Date"].values:
+            print("Either start date or end date not found in dataset!")
+            return
 
-        # Initialize variables for keeping track of profit
-        buy_and_hold_profit = backtest_data["Open"].iloc[0] - backtest_data["Open"].iloc[-1]  # Buy at open and sell at close
-        predicted_profit = 0.0  # Initialize running profit
+        # Base profit calculation
+        base_profit = (self.data.loc[self.data["Date"] == end_date, "Close"].values[0] /
+                    self.data.loc[self.data["Date"] == start_date, "Open"].values[0]) * 100
+        
+        base_profit = base_profit - 100
 
-        for idx, row in backtest_data.iterrows():
-            predicted_high = self.predict_given_date(row["Date"], lookback=1)
+        model_profit_count = 0.0
 
-            # Compare predicted high with open and actual high
-            if predicted_high > row["Open"] and predicted_high < row["High"]:
-                predicted_profit += predicted_high - row["Open"]  # Difference between open and predicted added to profit
-                if predicted_high < row["Close"]:
-                    predicted_profit += row["Close"] - row["Open"]  # Difference between open and close added to profit
+        date_range = pd.date_range(start=start_date, end=end_date, freq='D')[1:]  # Start from the next day of start_date
+        for date in date_range:
+            print(f"Running profit on date {date}: {model_profit_count}")
+            date_str = date.strftime('%Y-%m-%d')  # Convert date to string format to match the dataframe
+            prev_date_str = (date - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
 
-        # Calculate the percentage increase for the strategy
-        base_percent_increase = ((buy_and_hold_profit +  backtest_data["Open"].iloc[0]) / backtest_data["Open"].iloc[0]) * 100
-        model_percent_increase = ((predicted_profit + backtest_data["Open"].iloc[0])/ backtest_data["Open"].iloc[0]) * 100
+            predicted_high = self.predict_given_date(prev_date_str)  # Use previous day's data to predict
 
-        # Print results
-        print(f"Backtest Results for {self.ticker} from {start_date} to {end_date}:")
-        print(f"Buy and Hold Profit: {buy_and_hold_profit:.2f}")
-        print(f"Predicted Strategy Profit: {predicted_profit:.2f}")
-        print(f"Base Percentage Increase: {base_percent_increase:.2f}%")
-        print(f"Model Percentage Increase: {model_percent_increase:.2f}%")
+            open_price = self.data.loc[self.data["Date"] == date_str, "Open"].values[0]
+            high_price = self.data.loc[self.data["Date"] == date_str, "High"].values[0]
+            close_price = self.data.loc[self.data["Date"] == date_str, "Close"].values[0]
+
+            if predicted_high > open_price:
+                if predicted_high < high_price:
+                    model_profit_count += (high_price - open_price)
+                else:
+                    model_profit_count += (close_price - open_price)
+
+        # Calculate model profit percentage
+        model_cumulative_value = self.data.loc[self.data["Date"] == start_date, "Open"].values[0] + model_profit_count
+        model_profit_percentage = (model_cumulative_value / self.data.loc[self.data["Date"] == start_date, "Open"].values[0]) * 100
+        model_profit = model_profit_percentage - 100
+
+        print(f"Base Profit: {base_profit:.2f}%")
+        print(f"Model Profit: {model_profit:.2f}%")
 
 
 
 
 predictor = StockPredictor("AAPL")
 #predictor.train_model(lookback=1, epochs=50, batch_size=32)
-predictor.backtest(start_date='2023-08-01', end_date='2023-08-20')
+predictor.backtest(start_date='2018-07-01', end_date='2023-08-20')
 #predictor.predict_test_data()
 #predictor.predict_given_date('2023-08-21')
