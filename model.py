@@ -124,11 +124,42 @@ class StockPredictor:
         
         print(f"Predicted next-day high for {self.ticker} on {date} is {str(predicted_high[0][0])}")
         return predicted_high[0][0]
+    
+    def backtest(self, start_date, end_date):
+        # Filter data for the specified date range
+        start_idx = self.data[self.data["Date"] == start_date].index[0]
+        end_idx = self.data[self.data["Date"] == end_date].index[0]
+        backtest_data = self.data[start_idx:end_idx + 1]
+
+        # Initialize variables for keeping track of profit
+        buy_and_hold_profit = backtest_data["Open"].iloc[0] - backtest_data["Open"].iloc[-1]  # Buy at open and sell at close
+        predicted_profit = 0.0  # Initialize running profit
+
+        for idx, row in backtest_data.iterrows():
+            predicted_high = self.predict_given_date(row["Date"], lookback=1)
+
+            # Compare predicted high with open and actual high
+            if predicted_high > row["Open"] and predicted_high < row["High"]:
+                predicted_profit += predicted_high - row["Open"]  # Difference between open and predicted added to profit
+                if predicted_high < row["Close"]:
+                    predicted_profit += row["Close"] - row["Open"]  # Difference between open and close added to profit
+
+        # Calculate the percentage increase for the strategy
+        base_percent_increase = ((buy_and_hold_profit +  backtest_data["Open"].iloc[0]) / backtest_data["Open"].iloc[0]) * 100
+        model_percent_increase = ((predicted_profit + backtest_data["Open"].iloc[0])/ backtest_data["Open"].iloc[0]) * 100
+
+        # Print results
+        print(f"Backtest Results for {self.ticker} from {start_date} to {end_date}:")
+        print(f"Buy and Hold Profit: {buy_and_hold_profit:.2f}")
+        print(f"Predicted Strategy Profit: {predicted_profit:.2f}")
+        print(f"Base Percentage Increase: {base_percent_increase:.2f}%")
+        print(f"Model Percentage Increase: {model_percent_increase:.2f}%")
 
 
 
 
 predictor = StockPredictor("AAPL")
 #predictor.train_model(lookback=1, epochs=50, batch_size=32)
-predictor.predict_test_data()
-predictor.predict_given_date('2023-08-21')
+predictor.backtest(start_date='2023-08-01', end_date='2023-08-20')
+#predictor.predict_test_data()
+#predictor.predict_given_date('2023-08-21')
