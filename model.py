@@ -1,102 +1,84 @@
-import numpy as np
 import pandas as pd
-
-from keras.models import Sequential, load_model
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from keras.models import Sequential
 from keras.layers import LSTM, Dense, Dropout
-from sklearn.preprocessing import MinMaxScaler
-from datetime import datetime, timedelta
-import os
-
-class StockPredictor:
-
-    def __init__(self, ticker):
-        self.ticker = ticker
-        self.feature_scaler = MinMaxScaler(feature_range=(0, 1))
-        self.target_scaler = MinMaxScaler(feature_range=(0, 1))
-        self.model_path = f"data/Model_{ticker}.h5"
-        if os.path.exists(self.model_path):
-            self.model = load_model(self.model_path)
-        else:
-            self.model = None
-
-    def load_data(self):
-        data_path = f"data/Data_{self.ticker}.csv"
-        if not os.path.exists(data_path):
-            raise FileNotFoundError(f"{data_path} does not exist.")
-        df = pd.read_csv(data_path)
-        df['Date'] = pd.to_datetime(df['Date']).dt.date  # Convert to datetime and take only the date part
-        return df.copy(deep=True)
-
-    def preprocess_data(self, df):
-        features = df.drop(columns=['Date', 'Next Day High'])
-        targets = df['Next Day High'].values
-        
-        # Scale features and targets
-        features_scaled = self.feature_scaler.transform(features)
-        targets_scaled = self.target_scaler.transform(targets.reshape(-1, 1))
-        
-        X, Y = [], []
-        look_back = 20
-        for i in range(len(features_scaled) - look_back - 1):
-            X.append(features_scaled[i:(i + look_back)])
-            Y.append(targets_scaled[i + look_back])
-        return np.array(X), np.array(Y)
-
-    def train(self):
-        df = self.load_data()
-        train_size = int(len(df) * 0.67)
-        train = df.iloc[0:train_size]
-
-        # Fit scalers on training data
-        self.feature_scaler.fit(train.drop(columns=['Date', 'Next Day High']))
-        self.target_scaler.fit(train['Next Day High'].values.reshape(-1, 1))
-
-        X_train, Y_train = self.preprocess_data(train)
-        X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], X_train.shape[2]))
+from keras.optimizers import Adam
 
 
-        # Model architecture
-        if self.model is None:
-            self.model = Sequential()
-            self.model.add(LSTM(50, input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True))
-            self.model.add(Dropout(0.2))
-            self.model.add(LSTM(50))
-            self.model.add(Dropout(0.2))
-            self.model.add(Dense(1))
-            self.model.compile(loss='mean_squared_error', optimizer='adam')
+# Load the dataset
+ticker = "AAPL"
+data = pd.read_csv(f"data/Data_{ticker}.csv")
+data = data.dropna()
 
-        self.model.fit(X_train, Y_train, epochs=50, batch_size=32, verbose=1)  
-        self.model.save(self.model_path)
+# Feature selection
+features = data.drop(["Date", "Next Day High"], axis=1)
+targets = data["Next Day High"]
 
-    def predict(self, recent_data):
-        if self.model is None:
-            raise ValueError("Model not trained. Please train the model before predicting.")
+# Scaling
+scaler = StandardScaler()
+features_scaled = scaler.fit_transform(features)
+target_scaler = MinMaxScaler()
+targets_scaled = target_scaler.fit_transform(targets.values.reshape(-1, 1))
 
-        recent_data_copy = recent_data.copy(deep=True)
-        X, _ = self.preprocess_data(recent_data_copy)
-        if X.shape[0] == 0:
-            raise ValueError("Not enough records in recent_data to make a prediction.")
+def create_dataset(X, y, lookback=1):
+    Xs, ys = [], []
+    for i in range(len(X) - lookback):
+        v = X.iloc[i:(i + lookback)].values
+        Xs.append(v)
+        ys.append(y.iloc[i + lookback])
+    return np.array(Xs), np.array(ys)
 
-        X = np.reshape(X, (X.shape[0], X.shape[1], X.shape[2]))
-        predicted = self.model.predict(X)
-        return self.target_scaler.inverse_transform(predicted)
+# Set your desired lookback here
+lookback = 1
 
-    def load_recent_data(self, end_date_str):
-        df = self.load_data()
-        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()  # Take only the date part
-        start_date = end_date - timedelta(days=30)
+X, y = create_dataset(pd.DataFrame(features_scaled), pd.DataFrame(targets_scaled), lookback)
 
-        mask = (df['Date'] >= start_date) & (df['Date'] <= end_date)
-        recent_data = df[mask]
-        return recent_data
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.05, shuffle=False)
 
-# Usage:
-ticker = 'LMT'
-prd = StockPredictor(ticker)
-prd.train()
+open_prices = data["Open"].values[-len(X_test):]
+close_prices = data["Close"].values[-len(X_test):]
 
-today_str = datetime.today().strftime('%Y-%m-%d')
-recent_data = prd.load_recent_data('2018-08-31')
-predictions = prd.predict(recent_data)
-last_date = recent_data.iloc[-1]['Date'].strftime('%Y-%m-%d')  # Format date to yyyy-mm-dd before printing
-print(f"Predicted next-day-high for {ticker} on {last_date} is: {predictions[-1][0]}")
+# Build the LSTM model
+model = Sequential()
+model.add(LSTM(50, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])))
+model.add(Dropout(0.2))
+model.add(LSTM(50))
+model.add(Dropout(0.2))
+model.add(Dense(1))
+model.compile(optimizer=Adam(lr=0.001), loss="mean_squared_error")
+
+# Train the model
+print("Training the model...")
+history = model.fit(X_train, y_train, epochs=50, batch_size=32, validation_data=(X_test, y_test), verbose=1, shuffle=False)
+
+# Predictions
+y_pred = model.predict(X_test)
+
+# Inverse transform the scaled data
+y_pred_original = target_scaler.inverse_transform(y_pred)
+y_test_original = target_scaler.inverse_transform(y_test)
+
+# Extracting the last 10 dates from the test set
+last_10_dates = data["Date"].values[-len(y_test):][-10:]
+
+# Printing the last 10 actual and predicted highs along with their dates
+print("\nLast 10 Predictions:")
+for date, actual, pred in zip(last_10_dates, y_test_original[-10:], y_pred_original[-10:]):
+    print(f"Date: {date} | Actual High: {actual[0]:.2f} | Predicted High: {pred[0]:.2f}")
+
+# Plotting the results
+plt.figure(figsize=(14, 6))
+plt.plot(y_test_original, label="Actual Highs", color="blue")
+plt.plot(y_pred_original, label="Predicted Highs", color="red")
+
+plt.plot(open_prices, label="Open Prices", color="green", linewidth=0.5)
+plt.plot(close_prices, label="Close Prices", color="magenta", linewidth=0.5)
+
+
+plt.title("Comparison of Actual and Predicted Next Day High Prices")
+plt.legend()
+plt.show()

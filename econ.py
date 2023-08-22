@@ -21,7 +21,7 @@ class EconomicDataUpdater:
         return [start_date + datetime.timedelta(days=i) for i in range((end_date-start_date).days + 1)]
 
     def fetch_fred_data_range(self, start_date, end_date):
-        series_codes = ['GDP', 'UNRATE', 'T5YIE', 'FEDFUNDS', "CPIAUCSL", "PPIACO", "BOPGSTB", "RSXFS", "INDPRO", "SP500"]
+        series_codes = ['T5YIE', 'FEDFUNDS', "SP500"]
         data = {}
         for series in series_codes:
             series_data = self.fred.get_series(series, start_date, end_date)
