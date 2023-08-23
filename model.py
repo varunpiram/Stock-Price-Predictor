@@ -122,7 +122,7 @@ class StockPredictor:
         prediction = self.model.predict(X)
         predicted_high = self.target_scaler.inverse_transform(prediction)
         
-        print(f"Predicted next-day high for {self.ticker} on {date} is {str(predicted_high[0][0])}")
+        #print(f"Predicted next-day high for {self.ticker} on {date} is {str(predicted_high[0][0])}")
         return predicted_high[0][0]
     
     #TODO: Does not work
@@ -142,7 +142,7 @@ class StockPredictor:
 
         date_range = pd.date_range(start=start_date, end=end_date, freq='D')[1:]  # Start from the next day of start_date
         for date in date_range:
-            print(f"Running profit on date {date}: {model_profit_count}")
+            #print(f"Running profit on date {date}: {model_profit_count}")
             date_str = date.strftime('%Y-%m-%d')  # Convert date to string format to match the dataframe
             prev_date_str = (date - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
 
@@ -169,8 +169,8 @@ class StockPredictor:
 
 
 
-predictor = StockPredictor("AAPL")
+#predictor = StockPredictor("JPM")
 #predictor.train_model(lookback=1, epochs=50, batch_size=32)
-predictor.backtest(start_date='2018-07-01', end_date='2023-08-20')
+#predictor.backtest(start_date='2023-02-13', end_date='2023-08-20')
 #predictor.predict_test_data()
-#predictor.predict_given_date('2023-08-21')
+#predictor.predict_given_date('2023-08-22')

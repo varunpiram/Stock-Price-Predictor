@@ -67,29 +67,28 @@ class newsKeeper:
     def updateNews(self):
         df = pd.read_csv('WorldNewsData.csv')
         last_date = pd.to_datetime(df['Date'].iloc[-1], format='%d-%b-%y')
-        next_day = last_date + timedelta(days=1)
         current_day = datetime.now().date()
 
-        while next_day <= pd.Timestamp(current_day):
-            urls = self.fetch_gd(next_day)
-            
-            # Filter duplicate URLS
-            unique_urls = list(set(urls))
-            
-            # Extract titles from URLs
-            titles = [self.extract_title_from_url(url) for url in unique_urls][:25]
-            new_entry = [next_day.strftime('%d-%b-%y')] + titles
-            df.loc[len(df)] = new_entry
-            next_day += timedelta(days=1)
-        
-        df.to_csv('WorldNewsData.csv', index=False)
+        if last_date != pd.Timestamp(current_day):
+            next_day = last_date + timedelta(days=1)
 
+            while next_day <= pd.Timestamp(current_day):
+                urls = self.fetch_gd(next_day)
+                
+                # Filter duplicate URLS
+                unique_urls = list(set(urls))
+                
+                # Extract titles from URLs
+                titles = [self.extract_title_from_url(url) for url in unique_urls][:25]
+                new_entry = [next_day.strftime('%d-%b-%y')] + titles
+                df.loc[len(df)] = new_entry
+                next_day += timedelta(days=1)
+            
+            df.to_csv('WorldNewsData.csv', index=False)
+        else:
+            print("News already up to date.")
  
 
-
-
-nk = newsKeeper()
-nk.updateNews()
 
 
 

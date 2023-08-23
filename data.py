@@ -11,8 +11,7 @@ from yfinance import Ticker
 
 class dataGenerator:
 
-    def __init__(self, scoreBool):
-        self.scoreBool = scoreBool
+    def __init__(self):
         self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
         self.model = DistilBertModel.from_pretrained('distilbert-base-uncased')
 
@@ -21,8 +20,8 @@ class dataGenerator:
         df_economic['Date'] = pd.to_datetime(df_economic['Date'], format='%d-%b-%y')
         return df_economic
         
-    def compute_score(self,row, ticker):
-        if self.scoreBool:
+    def compute_score(self,row, ticker, sentimentScore):
+        if sentimentScore:
             print(f"Processing date: {row['Date']}")  # Debugging statement
             headlines = " ".join(map(str, row[1:]))
             prompt_positive = f"The outlook for {ticker} stock is highly positive."
@@ -56,17 +55,20 @@ class dataGenerator:
             return -1
     
     def fetch_financial_data(self, ticker, start_date, end_date):
+
         buffer_days = 50  
         adjusted_start_date = start_date - pd.Timedelta(days=buffer_days)
         
         # Fetch data with yfinance using the adjusted start date
-        df_financial = yf.download(ticker, start=adjusted_start_date, end=end_date)
+        try:
+            df_financial = yf.download(ticker, start=adjusted_start_date, end=end_date)
+        except:
+            Exception("Couldn't fetch data")
         return df_financial
     
     def add_technical_indicators(self, df):
         df['RSI'] = talib.RSI(df['Close'], timeperiod=14)
         df['MACD'], df['MACD Signal'], _ = talib.MACD(df['Close'], fastperiod=12, slowperiod=26, signalperiod=9)
-
         return df
     
     def fetch_fundamental_data(self, ticker):
@@ -101,7 +103,8 @@ class dataGenerator:
 
 
         
-    def score(self, ticker):
+    def score(self, ticker, sentimentScore=True):
+
         df = pd.read_csv('WorldNewsData.csv')
         df['Date'] = pd.to_datetime(df['Date'], format='%d-%b-%y')
 
@@ -126,7 +129,7 @@ class dataGenerator:
 
         # If there are new entries in df after filtering, compute sentiment scores
         if not df.empty:
-            df['Sentiment Score'] = df.apply(lambda row: self.compute_score(row, ticker), axis=1)
+            df['Sentiment Score'] = df.apply(lambda row: self.compute_score(row, ticker, sentimentScore), axis=1)
 
             start_date = df['Date'].iloc[0]
             end_date = df['Date'].iloc[-1] + pd.Timedelta(days=1)
@@ -154,22 +157,22 @@ class dataGenerator:
 
             SECTOR_TO_ETF = {
                 'Technology': 'XLK',
-                'Health Care': 'XLV',
-                'Financials': 'XLF',
-                'Consumer Discretionary': 'XLY',
+                'Healthcare': 'XLV',
+                'Financial Services': 'XLF',
+                'Consumer Cyclical': 'XLY',
                 'Communication Services': 'XLC',
                 'Industrials': 'XLI',
-                'Consumer Staples': 'XLP',
+                'Consumer Defensive': 'XLP',
                 'Energy': 'XLE',
                 'Utilities': 'XLU',
                 'Real Estate': 'XLRE',
-                'Materials': 'XLB'
+                'Basic Materials': 'XLB'
             }
-            
+            print(SECTOR_TO_ETF[yf.Ticker(ticker).info.get('sector')])
             try:
                 sector = SECTOR_TO_ETF[yf.Ticker(ticker).info.get('sector')]
             except:
-                print("Ticker not supported")
+                Exception("Ticker unsupported")
 
 
 
@@ -181,6 +184,7 @@ class dataGenerator:
                 'FEDFUNDS', 'SP500', 
                 'EUR=X', sector, 'Next Day High'
             ]
+
             output_df = df_combined[columns_output].copy()
 
             # Convert 'Date' column to 'YYYY-MM-DD' format without time details
@@ -201,6 +205,7 @@ class dataGenerator:
             print(f"No new entries found for {ticker}. The data is up-to-date.")
 
 
-sc = dataGenerator(True)
-sc.score("AAPL")
+#sc = dataGenerator()
+#sc.score('AAPL')
+
 
