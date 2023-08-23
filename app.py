@@ -2,26 +2,37 @@ from model import StockPredictor
 from news import newsKeeper
 from econ import econKeeper
 from data import dataGenerator
+from dotenv import load_dotenv
 import os
 
+load_dotenv()
+
+FRED_KEY = os.environ.get("FRED_KEY")
+
+# Easy way to run model via. command line
 class app:
+    # Initializes app
     def __init__(self):
         return
-
+    
+    # Runs app
     def run(self, scoreToggle=True):
 
+        # Updates common data shared across all tickers (WorldEconomicData and WorldNewsData)
         print("Updating common data...")
         try:
             news = newsKeeper()
             news.updateNews()
-            econ = econKeeper('1353cc07f1bd42904e62f96d8f984d86')
+            econ = econKeeper(FRED_KEY)
             econ.updateEcon()
             print("Common data updated.")
         except:
             print("Couldn't update common data. Check World CSV files and internet connection.")
 
+        # Asks ticker for model
         ticker = input("Enter your ticker: ")
 
+        # Lets user update data
         while True:
             ask0 = input(f"Update Data for {ticker}? (Yes/No): ")
             if ask0 == "Yes":
@@ -47,7 +58,7 @@ class app:
             else:
                 print("Invalid input. Answer must be 'Yes' or 'No'.")
 
-
+        # Lets user train model
         while True:
             ask1 = input("Train model? (Yes/No): ")
             if ask1 == "Yes":
@@ -80,6 +91,8 @@ class app:
             else:
                 print("Invalid input. Answer must be 'Yes' or 'No'.")
         
+        # Lets user use model - predicts next day high for specific dates, displays test data
+        # performance as a graph, and performs backtests over custom ranges
         while True:
             print("Select an option:")
             print("1. Predict next day high")
@@ -126,5 +139,6 @@ class app:
 
             
 
+# Runs app
 inst = app()
 inst.run()

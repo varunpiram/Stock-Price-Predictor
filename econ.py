@@ -4,7 +4,6 @@ import datetime
 from fredapi import Fred
 
 
-#TODO: ADD ENVIRONMENTAL VARIABLE STUFF FOR API KEY!!!! API KEY HARDCODED RIGHT NOW!!
 
 class econKeeper:
     def __init__(self, fred_api_key):

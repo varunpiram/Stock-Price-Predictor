@@ -8,34 +8,39 @@ import talib
 from yfinance import Ticker
 
 
-
+# Data generator class - generates and updates data files storing data for specific tickers
 class dataGenerator:
 
+    # Initializes tokenizer and model
     def __init__(self):
         self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
         self.model = DistilBertModel.from_pretrained('distilbert-base-uncased')
 
+    # Reads economic data from csv file
     def read_economic_data(self):
+
         df_economic = pd.read_csv('WorldEconomicData.csv')
         df_economic['Date'] = pd.to_datetime(df_economic['Date'], format='%d-%b-%y')
         return df_economic
-        
+
+    # Computes a sentiment score on how a day of news headlines relates to a specific stock ticker
+    # Does this by getting DistilBERT embeds for headlines and for negatively and positively modified
+    # versions of the headlines, and computing differences in cosine similarity
     def compute_score(self,row, ticker, sentimentScore):
+
         if sentimentScore:
-            print(f"Processing date: {row['Date']}")  # Debugging statement
+            print(f"Processing date: {row['Date']} for ticker: {ticker}") # Keeps track of progress
             headlines = " ".join(map(str, row[1:]))
             prompt_positive = f"The outlook for {ticker} stock is highly positive."
             prompt_negative = f"The outlook for {ticker} stock is highly negative."
 
-            # Get embeddings for headlines
+            # Gets embeddings for headlines
             input_ids = self.tokenizer(headlines, return_tensors="pt", max_length=512, truncation=True)["input_ids"]
-
             with torch.no_grad():
                 embeddings_headlines = self.model(input_ids).last_hidden_state.mean(dim=1)
             
             # Get embeddings for positive prompt + headlines
             input_ids_positive = self.tokenizer(headlines + prompt_positive, return_tensors="pt", max_length=512, truncation=True)["input_ids"]
-
             with torch.no_grad():
                 embeddings_positive = self.model(input_ids_positive).last_hidden_state.mean(dim=1)
             
@@ -48,53 +53,53 @@ class dataGenerator:
             sim_positive = cosine_similarity(embeddings_headlines.cpu().numpy(), embeddings_positive.cpu().numpy())
             sim_negative = cosine_similarity(embeddings_headlines.cpu().numpy(), embeddings_negative.cpu().numpy())
             
-            # Combine scores and normalize to [-1, 1]
+            # Combine scores
             score = sim_positive - sim_negative
             return score[0][0]
         else:
             return -1
     
+    # Fetches financial data from yfinance using a buffer to allow for indicator calculations
     def fetch_financial_data(self, ticker, start_date, end_date):
 
         buffer_days = 50  
         adjusted_start_date = start_date - pd.Timedelta(days=buffer_days)
         
-        # Fetch data with yfinance using the adjusted start date
         try:
             df_financial = yf.download(ticker, start=adjusted_start_date, end=end_date)
         except:
             Exception("Couldn't fetch data")
         return df_financial
     
+    # Adds technical indicators to financial data
     def add_technical_indicators(self, df):
         df['RSI'] = talib.RSI(df['Close'], timeperiod=14)
         df['MACD'], df['MACD Signal'], _ = talib.MACD(df['Close'], fastperiod=12, slowperiod=26, signalperiod=9)
         return df
     
+    # Fetches fundamental data from yfinance
     def fetch_fundamental_data(self, ticker):
         stock = Ticker(ticker)
         fundamentals = stock.info
         forward_pe = fundamentals.get("forwardPE", None)
-        
-        
         return forward_pe
     
+    # Forward fills NaN values to allow for further calculations/model training
     def handle_missing_data(self, df):
+
         # Forward fill NaN values in the 'Volume' column
         df['Volume'].fillna(method='ffill', inplace=True)
         
-        # New Columns: Technical Indicators
+        # Technical indicators
         columns_technical = ['RSI', 'MACD', 'MACD Signal']
         
-        # New Columns: Fundamental Data
+        # Fundamental data
         columns_fundamental = ['Forward PE']
         
-        # Existing Columns: Price Data
+        # Price data
         columns_price = ['Open', 'High', 'Low', 'Close', 'Sentiment Score']
 
-
-
-        # For other columns, fill NaN with the last available value
+        # Forward fill
         for col in columns_technical + columns_price + columns_fundamental:
                 df[col].fillna(method='ffill', inplace=True)
         
@@ -102,38 +107,46 @@ class dataGenerator:
 
 
 
-        
+    # Main method which updates/creates data files for specific tickers
     def score(self, ticker, sentimentScore=True):
 
+        # Reads the news data to get dates
         df = pd.read_csv('WorldNewsData.csv')
         df['Date'] = pd.to_datetime(df['Date'], format='%d-%b-%y')
 
+        # Reads the financial data to get dates
         df_economic = self.read_economic_data()
 
-        # Find the earliest ENDING date between the two CSVs
+        # Finds the earliest ending date between the two CSVs
         min_end_date = min(df['Date'].max(), df_economic['Date'].max())
 
-        # Filter the dataframes to remove dates that go beyond the earliest ENDING date
+        # Filters the dataframes to remove dates that go beyond the earliest ending date
         df = df[df['Date'] <= min_end_date]
         df_economic = df_economic[df_economic['Date'] <= min_end_date]
-
         output_path = f"data/Data_{ticker}.csv"
 
+        # If data (csv) for ticker exists, then reads it and grabs the last entry's date (and filters
+        # main dataframe)
         if os.path.exists(output_path):
-            # Read the existing DataFrame
+
+            # Read the existing data
             existing_df = pd.read_csv(output_path)
             last_date_existing = pd.to_datetime(existing_df['Date'].iloc[-1])
 
-            # Filter the main DataFrame to only process entries after the last_date_existing
+            # Filter the main DataFrame to only process entries after the last entry
             df = df[df['Date'] > last_date_existing]
 
-        # If there are new entries in df after filtering, compute sentiment scores
+        # If there are new entries, then compute the sentiment score for each entry and grab
+        # necessary data and add it to the existing data (csv)
         if not df.empty:
+            # Computes sentiment score
             df['Sentiment Score'] = df.apply(lambda row: self.compute_score(row, ticker, sentimentScore), axis=1)
 
+            # Get the appropriate dates
             start_date = df['Date'].iloc[0]
             end_date = df['Date'].iloc[-1] + pd.Timedelta(days=1)
 
+            # Fetch financial data
             df_financial = self.fetch_financial_data(ticker, start_date, end_date)
 
             # Add technical indicators
@@ -153,8 +166,7 @@ class dataGenerator:
             # Add the 'next day high' column
             df_combined["Next Day High"] = df_combined["High"].shift(-1)
 
-            # Define the columns_output list
-
+            # Define conversion of sectors to ETF tickers
             SECTOR_TO_ETF = {
                 'Technology': 'XLK',
                 'Healthcare': 'XLV',
@@ -168,15 +180,17 @@ class dataGenerator:
                 'Real Estate': 'XLRE',
                 'Basic Materials': 'XLB'
             }
-            print(SECTOR_TO_ETF[yf.Ticker(ticker).info.get('sector')])
+
+            # Get the sector of the ticker
             try:
                 sector = SECTOR_TO_ETF[yf.Ticker(ticker).info.get('sector')]
             except:
+                print("Ticker unsupported")
                 Exception("Ticker unsupported")
 
 
 
-
+            # Defines the columns to output (with specific sector ETF)
             columns_output = [
                 'Date', 'Sentiment Score', 'Open', 'High', 'Low', 'Close', 'Volume', 
                 'RSI', 'MACD', 'MACD Signal',
@@ -200,12 +214,9 @@ class dataGenerator:
                 combined_df.to_csv(output_path, index=False)
             else:
                 output_df.to_csv(output_path, index=False)
-
+                
+        # For cases of no new entries
         else:
             print(f"No new entries found for {ticker}. The data is up-to-date.")
-
-
-#sc = dataGenerator()
-#sc.score('AAPL')
 
 
