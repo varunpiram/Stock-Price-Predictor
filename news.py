@@ -14,9 +14,7 @@ class newsKeeper:
         return
     
     # Infers a headlines from a url's pathway by getting rid of dashes from the final "part"
-    # Has some unintended info, but it is best to prioritize accuracy over clarity as it is more
-    # efficient to have LLM ignore issues rather than filter them here and potentially lose important
-    # information
+    # Has some unintended info, but it is best to prioritize info over clarity
     def extract_title_from_url(self, url):
         # Split by slashes and get the last segment
         parts = url.strip('/').split('/')
