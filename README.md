@@ -2,26 +2,43 @@
 
 ## Description
 ### Overview:
-This project allows users to predict the next day's highs for a specific stock, given sentiment-scored news data and historic financial data. It does this by using a Recurrent Neural Network with Long Short-Term Memory cells for price prediction. Sentiment analysis is done by comparing embeddings from the DistilBERT LLM through cosine similarity, and historic financial and economic data is gathered through the yfinance API and the FRED API. 
+This project allows users to predict the next day's highs for a specific stock, given sentiment-scored news data and historic financial and economic data as well as technical indicators. It does this by using a Recurrent Neural Network with Long Short-Term Memory cells for price prediction. Sentiment analysis is done by comparing embeddings from the DistilBERT LLM through cosine similarity, and historic financial and economic data is gathered through the yfinance API and the FRED API, with technical data being calculated via TALib. 
 
 Note: Some news data has been collected from this Kaggle dataset: https://www.kaggle.com/datasets/suruchiarora/top-25-world-news-2018-2023?resource=download. Default data goes back to mid-June 2018 - some data is unavailable prior to this.
 ### Structure:
-The project allows for users to select specific stocks, load and save models for prediction or further training, and view the model's performance via through visualizing test data and through backtesting over a custom range. Additionally, the project allows for some customization through selection of
-epoch count, batch size, and lookback period (although some default values are recommended).
+This project operates by first prompting users to select a ticker, then automatically updating aggregated economic and news data, then allowing users the option to update/create stock-specific data and train/create models, and finally letting users run their models by predicting next day highs for specific dates, seeing test data performance visualized, and allowing users to run backtests to see model performance in trading.
 
-The project will first update aggregated news and economic data by inferring headlines from URLs gathered by GDELT for dates that have not yet been processed. It will then gather relevant financial data from yfinance and economic data from FRED, and save it accordingly to CSV files meant for storing data relevant to all stock tickers.
+The project is run through the `app.py` file.
 
-It will then allow users the option to update or create data specific to one stock, which is done by gathering appropriate financial information via yfinance and then scoring sentiment by comparing cosine similarity of news headlines to positively and negatively modified versions via DistilBERT. This data is then combined and saved to a CSV file specific to the stock ticker, located in the `data` directory.
+Collective world and news data is aggregated through classes in the `econ.py` and `news.py` files
+The `news.py` file checks the `WorldNewsData.csv` file for its latest entry, and updates it to the current day by grabbing news article URLs from GDELT, and inferring their headlines.
+The `econ.py` file checks the `WorldEconomicData.csv` file for its latest entry, and updates it to the current day by grabbing economic data from the FRED API and yfinance.
+Data gathered for this includes the 5 year breakeven inflation rate, the federal funds rate, S&P 500 performance, EUR/USD exchange rate, and closes for various sector ETFs.
 
-The project will then allow users to train a model on the data, which is done by first loading the data from the CSV file, then splitting it into training and testing data. The model is then trained on the training data, and the testing data is used to evaluate the model's performance. The model is then saved to a csv file specific to the stock ticker.
+Stock-specific data is created/updated through a class in the `data.py` file. This file stores sentiment scores of a given stock, financial data, fundamental data, technical indicators, and relevant economic information in a csv file found in the `/data` directory. This file is used by models for processing, training, and prediction.
+This class generates a sentiment score for each day by cosine similiarites of the embeddings of the day's news headlines in `WorldNewsData.csv` with positively and negatively modified versions of themselves. It uses yfinance to gather the Open, Close, High, Low, and Volume of the stock for each day, as well as Forward PE. TALib is used to calculate RSI, MACD, and MACD Signal. Finally, the class uses data from `WorldEconomicData.csv` to include the above mentioned economic data (excluding irrelevant sector ETFs).
 
-Next, the project lets users load, create, or train models for a specific stock, which are used to predict next day highs given historic data. The models are LSTMs implemented via TensorFlow's Keras, and are trained on the aforementioned, ticker-specific data. The user can select custom hyperparameters - epoch count, lookback, and batch size - although default values are recommended. Models are stored in the `data` directory, and users may further train them or directly load them for use.
+The models are handled and run through a class in the `model.py` file. The models, which are Recurrent Neural Networks with Long Short-Term Memory cells, are implemented through TensorFlow's Keras and are trained, tested, and runs on the above stock-specific data. They use 2 LSTM layers with 50 neurons each, and 2 dropout layers with 20% dropout to prevent overfitting. The models are trained on 90% of the data, and tested on the remaining 10%. They use the Adam optimizer with a learning rate of 0.001, and have customizable epochs, lookback, and batch size parameters (default 50,1,32).
+The project allows for the model to be saved into the `/data` directory, and loaded for further training or usage.
 
-Finally, the project allows users to predict next day highs for a specific stock using the above models and data. The project allows the user to predict next day highs given a date, to display the model's performance over unseen test data, and to backtest the model over a custom range of dates.
-
-Note: Data used for prediction must be stored within the stock's data file, however, not all of this data is used for training.
+The project allows the user to run their models to predict next day highs given a date, to see the model's performance on test data vs. actual, and to perform backtests over a custom date range (assuming data in appropriate csv present for all dates in the range).
+The backtest compares the model's performance by comparing a benchmark buy-and-hold strategy to a strategy involving buying a stock at open if predicted high is to beat opening price, and either selling at predicted high or at close.
 ### Performance:
-TBU
+The below numbers represent performance of models located in the `/sample` directory using the provided backtest functionality on date range 2023-03-01 to 2023-08-01. This date range was unseen during training (by the provided models), but it was used in the test set.
+
+Ticker: AAPL
+Benchmark Returns: 33.22%
+Model Returns: 35.45%
+
+Ticker: PFE
+Benchmark Returns: -12.20%
+Model Returns: -10.77%
+
+Ticker: JPM
+Benchmark Returns: 10.61%
+Model Returns: 11.39%
+
+As shown, the model outperformed the benchmark in all cases. However, outperformance was slight, and may not be indicative of superior performance or accuracy.
 ## Usage:
 ### Use:
 This project can be run locally through a simple command-line interface. To run this project, simply follow setup instructions and run `app.py`.
@@ -32,12 +49,11 @@ Clone this repository, and install necessary libraries via:
 
 `pip install -r requirements.txt`
 
-This project requires a free FRED API key (https://fred.stlouisfed.org/docs/api/api_key.html), so store this in a .env file
-in the project root directory like so:
+This project requires a free FRED API key (https://fred.stlouisfed.org/docs/api/api_key.html). Create a .env file in the project's root directory and store your API key in it as such:
 ```
 FRED_KEY='[key]'
 ```
 
-If you would like to use the provided sample data, then simply move the files within the `sample`
-directory to the `data` directory.
+If you would like to use the provided sample data, then simply move the files within the `/sample`
+directory to the `/data` directory. If not, feel free to generate your own data.
 
