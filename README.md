@@ -53,7 +53,7 @@ As shown, the model outperformed the benchmark in all cases. However, outperform
 ### Use:
 This project can be run locally through a simple command-line interface. To run this project, simply follow setup instructions and run `app.py`.
 
-For testing purposes, users can run an instance of the app in code via the `.run(scoreToggle=False)`method if they choose to disable sentiment scoring (as this can be very time consuming over large time periods).
+For testing purposes, users can run an instance of the app in code via the `.run(scoreToggle=False)` method if wish choose to disable sentiment scoring (as this can be very time consuming over large time periods).
 ### Setup:
 Clone this repository, and install necessary libraries via:
 
