@@ -7,6 +7,7 @@ import os
 
 load_dotenv()
 
+# Gets API key
 FRED_KEY = os.environ.get("FRED_KEY")
 
 # Easy way to run model via. command line
@@ -78,15 +79,11 @@ class app:
                 break
             if ask1 == "No":
                 if os.path.exists(f"data/Model_{ticker}.h5"):
+                    model = StockPredictor(ticker)
                     break
                 else:
-                    ask10 = input(f"No model for {ticker} exists, do you wish to proceed? (Yes/No): ")
-                    if ask10 == "Yes":
-                        break
-                    if ask10 == "No":
-                        continue
-                    else:   
-                        print("Invalid input. Answer must be 'Yes' or 'No'.")
+                    print(f"No model for {ticker} exists. Please train model first.")
+                    continue
 
             else:
                 print("Invalid input. Answer must be 'Yes' or 'No'.")
@@ -134,9 +131,10 @@ class app:
             if ask2 == "4":
                 print("Exiting...")
                 break
-            else:
-                print("Invalid input. Response must be '1', '2', '3' or '4'.")
-
+            
+            if ask2 != 1 and ask2 != 2 and ask2 != 3 and ask2 != 4:
+                print("Invalid input. Answer must be 1, 2, 3, or 4.")
+                continue
             
 
 # Runs app

@@ -18,8 +18,8 @@ class dataGenerator:
 
     # Reads economic data from csv file
     def read_economic_data(self):
-
         df_economic = pd.read_csv('WorldEconomicData.csv')
+        # Datetime conversion
         df_economic['Date'] = pd.to_datetime(df_economic['Date'], format='%d-%b-%y')
         return df_economic
 
@@ -30,7 +30,11 @@ class dataGenerator:
 
         if sentimentScore:
             print(f"Processing date: {row['Date']} for ticker: {ticker}") # Keeps track of progress
+
+            # Combines headlines into str
             headlines = " ".join(map(str, row[1:]))
+
+            # Sets positive and negative prompts
             prompt_positive = f"The outlook for {ticker} stock is highly positive."
             prompt_negative = f"The outlook for {ticker} stock is highly negative."
 
@@ -62,18 +66,22 @@ class dataGenerator:
     # Fetches financial data from yfinance using a buffer to allow for indicator calculations
     def fetch_financial_data(self, ticker, start_date, end_date):
 
+        # Sets buffer day count and adjusted start date
         buffer_days = 50  
         adjusted_start_date = start_date - pd.Timedelta(days=buffer_days)
         
+        # Fetches data from yfinance
         try:
             df_financial = yf.download(ticker, start=adjusted_start_date, end=end_date)
         except:
-            Exception("Couldn't fetch data")
+            raise Exception("Couldn't fetch yfinance data")
         return df_financial
     
     # Adds technical indicators to financial data
     def add_technical_indicators(self, df):
+        # RSI
         df['RSI'] = talib.RSI(df['Close'], timeperiod=14)
+        # MACD and MACD Signal w/ appropriate parameters
         df['MACD'], df['MACD Signal'], _ = talib.MACD(df['Close'], fastperiod=12, slowperiod=26, signalperiod=9)
         return df
     
@@ -81,9 +89,11 @@ class dataGenerator:
     def fetch_fundamental_data(self, ticker):
         stock = Ticker(ticker)
         fundamentals = stock.info
+        # Forward PE
         forward_pe = fundamentals.get("forwardPE", None)
         return forward_pe
     
+
     # Forward fills NaN values to allow for further calculations/model training
     def handle_missing_data(self, df):
 
@@ -131,6 +141,11 @@ class dataGenerator:
 
             # Read the existing data
             existing_df = pd.read_csv(output_path)
+
+            # Drops rows with NaN values in the 'Next Day High' column (so data  is regenerated)
+            existing_df.dropna(subset=['Next Day High'], inplace=True)
+
+            #existing_df.dropna(inplace=True)
             last_date_existing = pd.to_datetime(existing_df['Date'].iloc[-1])
 
             # Filter the main DataFrame to only process entries after the last entry
@@ -186,7 +201,7 @@ class dataGenerator:
                 sector = SECTOR_TO_ETF[yf.Ticker(ticker).info.get('sector')]
             except:
                 print("Ticker unsupported")
-                Exception("Ticker unsupported")
+                raise Exception("Ticker unsupported")
 
 
 
@@ -199,12 +214,13 @@ class dataGenerator:
                 'EUR=X', sector, 'Next Day High'
             ]
 
+            # Create the output DataFrame
             output_df = df_combined[columns_output].copy()
 
             # Convert 'Date' column to 'YYYY-MM-DD' format without time details
             output_df['Date'] = output_df['Date'].dt.strftime('%Y-%m-%d')
 
-            # Set the 'Next_Day_High' for the last row to NaN
+            #Set the 'Next_Day_High' for the last row to NaN
             output_df.at[output_df.index[-1], 'Next Day High'] = float('NaN')
 
             # Append to existing or save new
@@ -214,7 +230,7 @@ class dataGenerator:
                 combined_df.to_csv(output_path, index=False)
             else:
                 output_df.to_csv(output_path, index=False)
-                
+
         # For cases of no new entries
         else:
             print(f"No new entries found for {ticker}. The data is up-to-date.")
