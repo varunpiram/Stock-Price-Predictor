@@ -217,6 +217,6 @@ class StockPredictor:
         model_profit = model_profit_percentage - 100
 
         # Print the results
-        print(f"Benchmark Profit: {base_profit:.2f}%")
-        print(f"Model Profit: {model_profit:.2f}%")
+        print(f"Benchmark Returns: {base_profit:.2f}%")
+        print(f"Model Returns: {model_profit:.2f}%")
 
