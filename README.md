@@ -7,14 +7,12 @@ WorldNewsData.csv from https://www.kaggle.com/datasets/suruchiarora/top-25-world
 
 # Stock Price Predictor:
 
-## Overview:
-
+## Description
+### Overview:
 This project allows users to predict the next day's highs for a specific stock, given sentiment-scored news data and historic financial data. It does this by using a Recurrent Neural Network with Long Short-Term Memory cells for price prediction. Sentiment analysis is done by comparing embeddings from the DistilBERT LLM through cosine similarity, and historic financial and economic data is gathered through the yfinance API and the FRED API. 
 
 Note: Some news data has been collected from this Kaggle dataset: https://www.kaggle.com/datasets/suruchiarora/top-25-world-news-2018-2023?resource=download. Default data goes back to mid-June 2018 - some data is unavailable prior to this.
-
-## Description:
-
+### Structure:
 The project allows for users to select specific stocks, load and save models for prediction or further training, and view the model's performance via through visualizing test data and through backtesting over a custom range. Additionally, the project allows for some customization through selection of
 epoch count, batch size, and lookback period (although some default values are recommended).
 
@@ -29,13 +27,13 @@ Next, the project lets users load, create, or train models for a specific stock,
 Finally, the project allows users to predict next day highs for a specific stock using the above models and data. The project allows the user to predict next day highs given a date, to display the model's performance over unseen test data, and to backtest the model over a custom range of dates.
 
 Note: Data used for prediction must be stored within the stock's data file, however, not all of this data is used for training.
-
+### Performance:
+TBU
 ## Usage:
-
+### Use:
 This project can be run locally through a simple command-line interface. To run this project, simply follow setup instructions and run `app.py`.
 
 For testing purposes, users can run an instance of the app in code via the `.run(scoreToggle=False)`method if they choose to disable sentiment scoring (as this can be very time consuming over large time periods).
-
 ### Setup:
 Clone this repository, and install necessary libraries via:
 
@@ -50,5 +48,3 @@ FRED_KEY='[key]'
 If you would like to use the provided sample data, then simply move the files within the `sample`
 directory to the `data` directory.
 
-### Peformance:
-TBU
