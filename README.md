@@ -26,17 +26,27 @@ The backtest compares the model's performance by comparing a benchmark buy-and-h
 ### Performance:
 The below numbers represent performance of models located in the `/sample` directory using the provided backtest functionality on date range 2023-03-01 to 2023-08-01. This date range was unseen during training (by the provided models), but it was used in the test set.
 
+```
 Ticker: AAPL
+
 Benchmark Returns: 33.22%
+
 Model Returns: 35.45%
-
+```
+```
 Ticker: PFE
-Benchmark Returns: -12.20%
-Model Returns: -10.77%
 
+Benchmark Returns: -12.20%
+
+Model Returns: -10.77%
+```
+```
 Ticker: JPM
+
 Benchmark Returns: 10.61%
+
 Model Returns: 11.39%
+```
 
 As shown, the model outperformed the benchmark in all cases. However, outperformance was slight, and may not be indicative of superior performance or accuracy.
 ## Usage:
