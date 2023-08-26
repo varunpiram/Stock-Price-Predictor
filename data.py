@@ -144,6 +144,8 @@ class dataGenerator:
 
             # Drops rows with NaN values in the 'Next Day High' column (so data  is regenerated)
             existing_df.dropna(subset=['Next Day High'], inplace=True)
+            existing_df.to_csv(output_path, index=False)
+            existing_df = pd.read_csv(output_path)
 
             #existing_df.dropna(inplace=True)
             last_date_existing = pd.to_datetime(existing_df['Date'].iloc[-1])
