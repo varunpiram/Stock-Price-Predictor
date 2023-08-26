@@ -50,7 +50,7 @@ class app:
             print("1. Predict Specific Date")
             print("2. Display Test Performance")
             print("3. Backtest")
-            print("4. Retrain (In-Place)")
+            print("4. Retrain (No data updates)")
             print("5. Exit")
 
             choice = input("Enter option: ")
