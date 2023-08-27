@@ -19,7 +19,6 @@ class app:
     def train(self, ticker):
         epochs = int(input("Enter epochs (rec. 50): "))
         batch_size = int(input("Enter batch size (rec. 32): "))
-        lookback = int(input("Enter lookback (rec 1): "))
 
         print("Updating news and economic data...")
         news = newsKeeper()
@@ -36,7 +35,7 @@ class app:
 
         print("Training model...")
         mdl = StockPredictor(ticker)
-        mdl.train_model(epochs=epochs, batch_size=batch_size, lookback=lookback)
+        mdl.train_model(epochs=epochs, batch_size=batch_size)
         print("Finished training model.")
 
     # Allows the user to run models and retrain - lets users run model on specific dates, display test
@@ -56,8 +55,11 @@ class app:
             choice = input("Enter option: ")
 
             if choice == '1':
-                date = input("Enter date (YYYY-MM-DD): ")
-                print(mdl.predict_given_date(date))
+                try:
+                    date = input("Enter date (YYYY-MM-DD): ")
+                    print(mdl.predict_given_date(date))
+                except:
+                    print("Invalid date. Try again.")
             elif choice == '2':
                 mdl.predict_test_data()
             elif choice == '3':
@@ -67,9 +69,8 @@ class app:
             elif choice == '4':
                 epochs = int(input("Enter epochs (rec. 50): "))
                 batch_size = int(input("Enter batch size (rec. 32): "))
-                lookback = int(input("Enter lookback (rec 1): "))
                 print("Training model...")
-                mdl.train_model(epochs=epochs, batch_size=batch_size, lookback=lookback)
+                mdl.train_model(epochs=epochs, batch_size=batch_size)
                 print("Finished training model.")
             elif choice == '5':
                 break
@@ -77,6 +78,7 @@ class app:
                 print("Invalid option. Try again.")
 
 
+# Main method - allows user to enter a ticker and train or use the model
     def main(self):
          while True:
             ticker = input("Enter ticker ('exit' to quit): ")
@@ -93,8 +95,11 @@ class app:
                 if choice == "1":
                     self.train(ticker)
                 elif choice == "2":
+                    if not os.path.exists(f"data/Model_{ticker}.h5"):
+                        print("Model does not exist. Train first.")
+                        break
                     if not os.path.exists(f"data/Data_{ticker}.csv"):
-                        print("Model Does Not Exist. Train first.")
+                        print("Data does not exist. Train first.")
                         break
                     self.use(ticker)
                 elif choice == "3":

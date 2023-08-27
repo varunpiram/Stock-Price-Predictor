@@ -30,6 +30,14 @@ class StockPredictor:
         self.target_scaler.fit(self.data["Next Day High"].values.reshape(-1, 1))
         # Gets NYSE calendar
         self.cal = mcal.get_calendar('NYSE')
+        
+        # Gets trading days
+        df_world_news = pd.read_csv('WorldNewsData.csv') # Read the WorldNewsData.csv to get the start_date
+        df_world_news['Date'] = pd.to_datetime(df_world_news['Date'], format='%d-%b-%y') 
+        start_date = df_world_news['Date'].iloc[1]
+        end_date = pd.Timestamp.now()
+        self.trading_days = self.cal.valid_days(start_date=start_date, end_date=end_date)
+        
 
 
     # Loads data
@@ -170,13 +178,19 @@ class StockPredictor:
         #print(f"Predicted next-day high for {self.ticker} on {date} is {str(predicted_high[0][0])}")
         return predicted_high[0][0]
     
-    # Checks if a day is a NYSE trading day
+    # Checks if a date is a NYSE trading day
     def check_trading(self, date):
-        return not self.cal.schedule(start_date=date, end_date=date).empty
-    
+        date_only = date.date()  # this extracts just the date from the datetime object
+        trading_dates_only = [td.date() for td in self.trading_days]
+        if date_only in trading_dates_only:
+            return True
+        else:
+            return False
 
     # Backtests the model's trading strategy against a simple buy-and-hold benchmark strategy
     def backtest(self, start_date, end_date):
+
+        ##Target Value Disabled - Uncomment code if you want this!
 
         # Check if the start and end dates are present in the dataset.
         if start_date not in self.data["Date"].values or end_date not in self.data["Date"].values:
@@ -189,16 +203,19 @@ class StockPredictor:
         # Lists to store portfolio values over time for both strategies: buy-and-hold (benchmark) and model.
         benchmark_values = [initial_value]
         model_values = [initial_value]
+        #target_values = [initial_value]
 
         # Counter to keep track of profits or losses for the model strategy.
         model_profit_count = 0.0
+
+        # Counter to keep track of target profits (w/ perfect prediction)
+        #target_profit_count = 0.0
 
         # Define a date range starting the day after the start_date and ending on the end_date.
         date_range = pd.date_range(start=start_date, end=end_date, freq='D')[1:]
 
         # List to store the dates for which the model strategy made a trade.
-        dates_out = []
-        dates_out.append(start_date) # Include starting date
+        dates_out = [start_date] # Include starting date
 
         # Iterate through each date in the date range.
         for date in date_range:
@@ -229,21 +246,33 @@ class StockPredictor:
                         # If the predicted high isn't reached, sell at close
                         model_profit_count += (close_price - open_price)
 
+                # If high beats open, then increase target profit
+                #if high_price > open_price:
+                    #target_profit_count += (high_price - open_price)
+
+
                 # Append the model's updated portfolio value to the model_values list
                 model_values.append(initial_value + model_profit_count)
+                #target_values.append(initial_value + target_profit_count)
 
                 dates_out.append(date.strftime('%Y-%m-%d'))
 
         # Calculate the percentage returns for both strategies
-        base_profit = (benchmark_values[-1] - initial_value) * 100 / initial_value
-        model_profit = (model_values[-1] - initial_value) * 100 / initial_value
+        base_profit = 100 * ((benchmark_values[-1])/ initial_value)
+        model_profit = 100 * ((model_values[-1])/ initial_value)
+        #target_profit = 100 * ((target_values[-1])/ initial_value)
+        
+        base_profit -= 100
+        model_profit -= 100
+        #target_profit -= 100
 
         # Plot the portfolio values over time for both strategies
         plt.figure(figsize=(14, 7))
-        print(len(dates_out), len(benchmark_values), len(model_values))
 
+        # Plot returns
         plt.plot(dates_out, benchmark_values, label='Benchmark Returns', color='blue')
         plt.plot(dates_out, model_values, label='Model Returns', color='red')
+        #plt.plot(dates_out, target_values, label='Target Returns', color='green')
         plt.xlabel('Date')
         plt.ylabel('Portfolio Value')
         plt.title('Model vs Benchmark Returns Over Time')
@@ -260,13 +289,12 @@ class StockPredictor:
 
         plt.tight_layout()  # Adjust layout for better visibility
         plt.legend()
-        plt.tight_layout()
         plt.show()
 
         # Print the overall percentage returns.
         print(f"Benchmark Returns: {base_profit:.2f}%")
         print(f"Model Returns: {model_profit:.2f}%")
-
+        #print(f"Target Returns: {target_profit:.2f}%")
 
 
 #mod = StockPredictor("XOM")

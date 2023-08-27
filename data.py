@@ -6,7 +6,7 @@ import torch
 import yfinance as yf
 import talib
 from yfinance import Ticker
-
+import pandas_market_calendars as mcal
 
 # Data generator class - generates and updates data files storing data for specific tickers
 class dataGenerator:
@@ -15,6 +15,17 @@ class dataGenerator:
     def __init__(self):
         self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
         self.model = DistilBertModel.from_pretrained('distilbert-base-uncased')
+
+        # Gets NYSE calendar
+        self.cal = mcal.get_calendar('NYSE')
+        
+        # Gets trading days
+        df_world_news = pd.read_csv('WorldNewsData.csv') # Read the WorldNewsData.csv to get the start_date
+        df_world_news['Date'] = pd.to_datetime(df_world_news['Date'], format='%d-%b-%y') 
+        start_date = df_world_news['Date'].iloc[1]
+        end_date = pd.Timestamp.now()
+        self.trading_days = self.cal.valid_days(start_date=start_date, end_date=end_date)
+        
 
     # Reads economic data from csv file
     def read_economic_data(self):
@@ -115,7 +126,17 @@ class dataGenerator:
         
         return df
 
+    # Checks if a date is a trading day
+    def check_trading(self, date):
+        date_only = date.date()  # this extracts just the date from the datetime object
+        trading_dates_only = [td.date() for td in self.trading_days]
+        if date_only in trading_dates_only:
+            return 1
+        else:
+            return 0
 
+
+    
 
     # Main method which updates/creates data files for specific tickers
     def score(self, ticker, sentimentScore=True):
@@ -183,6 +204,12 @@ class dataGenerator:
             # Add the 'next day high' column
             df_combined["Next Day High"] = df_combined["High"].shift(-1)
 
+
+            # Add the 'Next Trading Day' column
+            df_combined["Next Trading Day"] = df_combined["Date"].apply(lambda date: self.check_trading(date + pd.Timedelta(days=1)))
+
+
+
             # Define conversion of sectors to ETF tickers
             SECTOR_TO_ETF = {
                 'Technology': 'XLK',
@@ -213,7 +240,7 @@ class dataGenerator:
                 'RSI', 'MACD', 'MACD Signal',
                 'Forward PE', 'T5YIE', 
                 'FEDFUNDS', 'SP500', 
-                'EUR=X', sector, 'Next Day High'
+                'EUR=X', sector, 'Next Trading Day', 'Next Day High'
             ]
 
             # Create the output DataFrame
@@ -236,5 +263,4 @@ class dataGenerator:
         # For cases of no new entries
         else:
             print(f"No new entries found for {ticker}. The data is up-to-date.")
-
 

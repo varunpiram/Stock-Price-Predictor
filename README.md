@@ -1,5 +1,5 @@
 # Stock Price Predictor:
-
+Needs updating
 ## Description
 ### Overview:
 This project allows users to predict the next day's highs for a specific stock, given sentiment-scored news data and historic financial and economic data as well as technical indicators. It does this by using a Recurrent Neural Network with Long Short-Term Memory cells for price prediction. Sentiment analysis is done by comparing embeddings from DistilBERT through cosine similarity, and historic financial and economic data is gathered through the yfinance API and the FRED API, with technical data being calculated via TALib. 
@@ -27,28 +27,35 @@ The backtest compares the model's performance by comparing a benchmark buy-and-h
 The below numbers represent performance of models located in the `/sample` directory using the provided backtest functionality on date range 2023-03-01 to 2023-08-01. This date range was unseen during training (by the provided models), but it was used in the test set.
 
 ```
-Ticker: AAPL
+Ticker: XOM
 
-Benchmark Returns: 33.22%
+Benchmark Returns: -2.46%
 
-Model Returns: 35.45%
-```
-```
-Ticker: PFE
+Model Returns: 0.78%
 
-Benchmark Returns: -12.20%
-
-Model Returns: -10.77%
-```
-```
-Ticker: JPM
-
-Benchmark Returns: 10.61%
-
-Model Returns: 11.39%
+![XOM Sample Model Performance](sample/performance/xom.png)
 ```
 
-As shown, the model outperformed the benchmark in all cases. However, outperformance was slight, and may not be indicative of superior performance or accuracy.
+```
+Ticker: SPG
+
+Benchmark Returns: 2.70%
+
+Model Returns: -3.43%%
+
+![SPG Sample Model Performance](sample/performance/xom.png)
+```
+```
+Ticker: ETSY
+
+Benchmark Returns: -18.19%
+
+Model Returns: 4.29%
+
+![ETSY Sample Model Performance](sample/performance/xom.png)
+```
+
+As shown, the model outperformed the benchmark in 2 of 3 cases, with significant outperformance on the final case. However, this is not indicative of future performance, and is not indiciative of performance across all tickers, or even a diversified portfolio - this section is simply to provide an example of performance evaluation on sample data.
 ## Usage:
 ### Use:
 This project can be run locally through a simple command-line interface. To run this project, simply follow setup instructions and run `app.py`.
