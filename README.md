@@ -53,7 +53,7 @@ Model Returns: 4.29%
 As shown, the model outperformed the benchmark in 2 of 3 cases, with significant outperformance on the final case. However, this is not indicative of future performance, and is not indiciative of performance across all tickers, or even a diversified portfolio - this section is simply to provide an example of performance evaluation on sample data.
 ## Usage:
 ### Use:
-This project can be run locally through a simple command-line interface. To run this project, simply follow setup instructions and run `app.py`.
+This project is easy to set up and can be run locally through the command line. To run this project, simply follow setup instructions and run `app.py`.
 
 For testing purposes, users can run an instance of the app in code via the `.run(scoreToggle=False)` method if wish choose to disable sentiment scoring (as this can be very time consuming over large time periods).
 ### Setup:
