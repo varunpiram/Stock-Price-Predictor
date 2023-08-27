@@ -3,7 +3,7 @@
 ### Overview:
 This project allows users to predict the next day's highs for a specific stock, given sentiment-scored news data and historic financial and economic data as well as technical indicators. It does this by using a Recurrent Neural Network with Long Short-Term Memory cells for price prediction. Sentiment analysis is done by comparing embeddings from DistilBERT through cosine similarity, and historic financial and economic data is gathered through the yfinance API and the FRED API, with technical data being calculated via TALib. 
 
-Note: Some news data has been collected from this Kaggle dataset: https://www.kaggle.com/datasets/suruchiarora/top-25-world-news-2018-2023?resource=download. Default data goes back to mid-June 2018 - some data is unavailable prior to this.
+<sub>Note: Some news data has been collected from this Kaggle dataset: https://www.kaggle.com/datasets/suruchiarora/top-25-world-news-2018-2023?resource=download. Default data goes back to mid-June 2018 - some data is unavailable prior to this. This project and its predictions are not financial advice and should not be used for real-world trading or financial decisions.</sub>
 ### Structure:
 This project operates by first prompting users to select a ticker, then automatically updating aggregated economic and news data, then allowing users the option to update/create stock-specific data and train/create models, and finally letting users run their models by predicting next day highs for specific dates, seeing test data performance visualized, and allowing users to run backtests to see model performance in trading.
 
