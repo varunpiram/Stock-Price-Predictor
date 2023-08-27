@@ -48,7 +48,7 @@ Benchmark Returns: -18.19%
 
 Model Returns: 4.29%
 ```
-![ETSY Sample Model Performance](sample/performance/xom.png)
+![ETSY Sample Model Performance](sample/performance/etsy.png)
 
 As shown, the model outperformed the benchmark in 2 of 3 cases, with significant outperformance on the final case. However, this is not indicative of future performance, and is not indiciative of performance across all tickers, or even a diversified portfolio - this section is simply to provide an example of performance evaluation on sample data.
 ## Usage:
